@@ -30,6 +30,17 @@ def clean_bank_data(df: pd.DataFrame) -> pd.DataFrame:
 
         # Replace sentinel value with missing value
         df["pdays"] = df["pdays"].replace(999, pd.NA)
+        # Normalize categorical missing values for sklearn compatibility
+        categorical_cols = df.select_dtypes(include=["object", "string"]).columns
+
+        for col in categorical_cols:
+            df[col] = df[col].astype("object")
+            df[col] = df[col].where(df[col].notna(), "unknown")
+        # Ensure categorical columns have consistent string dtype
+        categorical_cols = df.select_dtypes(include=["object", "string", "category"]).columns
+
+        for col in categorical_cols:
+           df[col] = df[col].astype(str)
 
     return df
 
