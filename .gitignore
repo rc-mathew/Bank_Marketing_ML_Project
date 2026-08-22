@@ -28,4 +28,4 @@ artifacts/*
 .idea/
 
 # Windows
-Thumbs.db
+Thumbs.dbmodels/*.joblib
