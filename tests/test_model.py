@@ -1,54 +1,134 @@
-"""Automated tests for the Bank Marketing ML project."""
+"""CI-safe automated tests for the Bank Marketing ML pipeline."""
 
-from pathlib import Path
-
-import joblib
 import numpy as np
+import pandas as pd
+
+from src.models.save_model import build_pipeline
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_PATH = PROJECT_ROOT / "models" / "bank_marketing_model.joblib"
+def make_sample_data():
+    """Create a small representative Bank Marketing dataset."""
+
+    X = pd.DataFrame(
+        {
+            "age": [30, 45, 37, 52, 29, 61, 41, 34],
+            "job": [
+                "admin.",
+                "technician",
+                "services",
+                "management",
+                "student",
+                "retired",
+                "blue-collar",
+                "admin.",
+            ],
+            "marital": [
+                "single",
+                "married",
+                "single",
+                "married",
+                "single",
+                "married",
+                "married",
+                "single",
+            ],
+            "education": [
+                "university.degree",
+                "professional.course",
+                "high.school",
+                "university.degree",
+                "high.school",
+                "basic.9y",
+                "basic.6y",
+                "university.degree",
+            ],
+            "campaign": [1, 2, 1, 3, 1, 2, 4, 1],
+            "pdays": [5, 999, 999, 4, 999, 2, 999, 8],
+            "previous": [1, 0, 0, 2, 0, 3, 0, 1],
+            "euribor3m": [
+                1.20,
+                4.85,
+                4.90,
+                1.40,
+                4.80,
+                1.10,
+                4.95,
+                1.50,
+            ],
+        }
+    )
+
+    y = pd.Series(
+        [1, 0, 0, 1, 0, 1, 0, 1],
+        name="y",
+    )
+
+    return X, y
 
 
-def test_model_artifact_exists():
-    """Check that the trained model artifact exists."""
-    assert MODEL_PATH.exists(), (
-        "Model artifact not found. Run "
-        "`python -m src.models.save_model` first."
+def test_pipeline_builds():
+    """Pipeline should contain preprocessing and model stages."""
+
+    X, _ = make_sample_data()
+
+    pipeline = build_pipeline(X)
+
+    assert "preprocessor" in pipeline.named_steps
+    assert "model" in pipeline.named_steps
+
+
+def test_pipeline_fits():
+    """Pipeline should fit successfully on representative data."""
+
+    X, y = make_sample_data()
+
+    pipeline = build_pipeline(X)
+    pipeline.fit(X, y)
+
+    assert hasattr(
+        pipeline.named_steps["model"],
+        "classes_",
     )
 
 
-def test_saved_artifact_loads():
-    """Check that the saved model can be loaded successfully."""
-    artifact = joblib.load(MODEL_PATH)
+def test_predictions_are_binary():
+    """Predictions should contain only binary class labels."""
 
-    assert artifact is not None
+    X, y = make_sample_data()
+
+    pipeline = build_pipeline(X)
+    pipeline.fit(X, y)
+
+    predictions = pipeline.predict(X)
+
+    assert len(predictions) == len(X)
+    assert set(np.unique(predictions)).issubset({0, 1})
 
 
-def test_saved_artifact_can_predict():
-    """Check that the saved pipeline produces valid predictions."""
-    artifact = joblib.load(MODEL_PATH)
+def test_probabilities_are_valid():
+    """Positive-class probabilities must remain between 0 and 1."""
 
-    # The persisted artifact contains preprocessing + trained model.
-    assert hasattr(artifact, "predict")
+    X, y = make_sample_data()
 
-    # Verify the fitted model exposes expected classifier classes.
-    assert hasattr(artifact, "classes_") or hasattr(
-        artifact, "named_steps"
-    )
+    pipeline = build_pipeline(X)
+    pipeline.fit(X, y)
+
+    probabilities = pipeline.predict_proba(X)[:, 1]
+
+    assert len(probabilities) == len(X)
+    assert np.all(probabilities >= 0)
+    assert np.all(probabilities <= 1)
 
 
 def test_classifier_classes_are_binary():
-    """Check that the final classifier represents binary classification."""
-    artifact = joblib.load(MODEL_PATH)
+    """Final classifier should represent a binary problem."""
 
-    if hasattr(artifact, "classes_"):
-        classes = artifact.classes_
-    elif hasattr(artifact, "named_steps"):
-        final_estimator = list(artifact.named_steps.values())[-1]
-        classes = final_estimator.classes_
-    else:
-        raise AssertionError("Unable to locate classifier classes.")
+    X, y = make_sample_data()
+
+    pipeline = build_pipeline(X)
+    pipeline.fit(X, y)
+
+    classes = pipeline.named_steps["model"].classes_
 
     assert len(classes) == 2
-    assert set(np.asarray(classes).tolist()) == {0, 1}
+    assert set(classes.tolist()) == {0, 1}

@@ -24,9 +24,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas numpy scikit-learn joblib pytest
 
-      - name: Train and save model
+      - name: Compile core modules
         run: |
-          python -m src.models.save_model
+          python -m py_compile src/data/load_data.py
+          python -m py_compile src/data/validate_data.py
+          python -m py_compile src/features/build_features.py
+          python -m py_compile src/models/save_model.py
 
       - name: Run automated tests
         run: |
