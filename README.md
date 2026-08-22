@@ -278,7 +278,51 @@ The final preprocessing and prediction pipeline can be serialized as a reusable 
 
 Keeping preprocessing and prediction logic together reduces the risk of training-serving inconsistencies.
 
+## FastAPI Model Serving
 
+The trained machine learning pipeline is exposed through a FastAPI REST API.
+
+Available endpoints:
+
+- `GET /` — API information
+- `GET /health` — service health check
+- `POST /predict` — customer subscription prediction
+
+The `/predict` endpoint accepts customer and campaign features
+as JSON and passes them through the saved preprocessing and
+Random Forest classification pipeline.
+
+### Successful API Test
+
+The REST API was successfully tested through Swagger UI.
+
+Example response:
+
+{
+  "prediction": 0,
+  "subscription": "no",
+  "probability": 0.3315170224485902
+}
+
+HTTP Status: 200 OK
+
+This confirms the complete inference workflow:
+
+JSON Request
+    ↓
+FastAPI
+    ↓
+Input Validation
+    ↓
+Feature Preparation
+    ↓
+Saved Preprocessing Pipeline
+    ↓
+Random Forest Classifier
+    ↓
+Prediction Probability
+    ↓
+JSON Response
 
 \## Automated Testing
 
